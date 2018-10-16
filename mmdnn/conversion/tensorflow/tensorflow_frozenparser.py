@@ -149,7 +149,7 @@ class TensorflowParser2(Parser):
                     x = tensorflow.placeholder(dtype)
 
                 input_map[in_nodes[i] + ':0'] = x
-           
+
             tensorflow.import_graph_def(model, name='', input_map=input_map)
 
         with tensorflow.Session(graph = g) as sess:
@@ -348,13 +348,13 @@ class TensorflowParser2(Parser):
                 continue
 
             node_type = current_node.type
-            
+
             if hasattr(self, "rename_" + node_type):
- 
+
                 func = getattr(self, "rename_" + node_type)
                 func(current_node)
             else:
-                
+
                 self.rename_UNKNOWN(current_node)
 
 
@@ -514,7 +514,6 @@ class TensorflowParser2(Parser):
         kwargs['kernel_shape'] = self.tensor_shape_to_list(input_node.get_attr('_output_shapes'))[0]
 
         self._convert_padding(source_node, IR_node, kwargs['kernel_shape'][:-2])
-
 
         weight_node = self.src_graph.get_parent(source_node.name, [1])
         weight = self.check_const(weight_node).get_attr('value')
@@ -883,6 +882,7 @@ class TensorflowParser2(Parser):
 
     def rename_MatMul(self, source_node):
         IR_node = self._convert_identity_operation(source_node, end_idx=1)
+
         input_weight_node = self.src_graph.get_parent(source_node.name, [1])
         weightnode = self.check_const(input_weight_node)
         weight_value = weightnode.get_attr('value')
@@ -893,7 +893,8 @@ class TensorflowParser2(Parser):
         units = source_node.layer.attr['_output_shapes'].list.shape[-1].dim[-1].size
         IR_node.attr['units'].i = units
 
-        if source_node.out_edges and self.tf_graph.get_node(source_node.out_edges[0]).type == 'BiasAdd':
+        if source_node.out_edges and self.tf_graph.get_node(source_node.out_edges[0]).type == 'BiasAdd' or 'Add':
+            IR_node.attr["_output_shapes"].list.shape.pop()
             add_node = self.tf_graph.get_node(source_node.out_edges[0])
             add_node.covered = True
             add_node.real_name = source_node.real_name
@@ -905,6 +906,7 @@ class TensorflowParser2(Parser):
             bias = tensor_util.MakeNdarray(bias_value)
             self.set_weight(source_node.name, 'bias', bias)
             IR_node.attr['use_bias'].b = True
+
 
 
     def rename_Softmax(self, source_node):
@@ -1110,6 +1112,7 @@ class TensorflowParser2(Parser):
         kwargs['shape'] = self.tensor_shape_to_list(input_node.get_attr('_output_shapes'))[0]
 
         assign_IRnode_values(IR_node, kwargs)
-    
+
     def rename_Log(self, source_node):
         IR_node = self._convert_identity_operation(source_node, new_op = 'Log')
+
